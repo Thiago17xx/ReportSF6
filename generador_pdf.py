@@ -1,119 +1,141 @@
-# generador_pdf.py
-import os
-import matplotlib.pyplot as plt
 from fpdf import FPDF
+import matplotlib.pyplot as plt
+import numpy as np
 from io import BytesIO
+import tempfile
+import os
 
-# Crear directorio para los reportes si no existe
-os.makedirs("reportes_sf6", exist_ok=True)
+def crear_grafico(H2O_ppmw, H20_Pc, SO2, SF6, H20_ppmv):
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    # Datos para el gráfico de burbujas
+    x = np.array([H2O_ppmw])  # PPMW
+    y = np.array([H20_Pc])    # Punto de Rocío (°C)
+    size = np.array([100])    # Tamaño de la burbuja (fijo por ahora)
+    
+    # Crear el gráfico de burbujas
+    ax.scatter(x, y, s=size, color='blue', alpha=0.6, edgecolors="w", linewidth=2)
+
+    # Añadir las líneas de límite
+    ax.axhline(y=-36, color='r', linestyle='--', label='Límite Pcº <= -36')
+    ax.axvline(x=20, color='g', linestyle='--', label='Límite PPMW <= 20')
+
+    # Etiquetas y título
+    ax.set_title('Gráfico de Burbuja: PPMW vs Punto de Rocío (Pcº)', fontsize=12)
+    ax.set_xlabel('H2O (ppmw)', fontsize=10)
+    ax.set_ylabel('Punto de Rocío (Pcº)', fontsize=10)
+    ax.legend()
+
+    # Guardar el gráfico en un archivo temporal
+    temp_img = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+    plt.savefig(temp_img.name, format='png')
+    plt.close(fig)
+
+    return temp_img.name
 
 class PDF(FPDF):
     def header(self):
-        # Coloca una imagen en la cabecera
-        self.image("static/logolds.jpg", x=10, y=4, w=30, h=15)
         self.set_font('Arial', 'B', 14)
-        self.cell(0, 10, 'REPORTE DE SF6', ln=True, align='C')
+        self.cell(200, 10, 'Reporte de Análisis SF6', ln=True, align='C')
+
+    def agregar_datos_generales(self, datos):
+        self.set_font('Arial', '', 12)
+        self.cell(0, 10, f'FECHA: {datos["FECHA"]}', ln=True)
+        self.cell(0, 10, f'SET: {datos["SET"]}', ln=True)
+        self.cell(0, 10, f'CIRCUITO: {datos["CIRCUITO"]}', ln=True)
+        self.cell(0, 10, f'Fase: {datos["Fase"]}', ln=True)
+        self.cell(0, 10, f'EQUIPO: {datos["EQUIPO"]}', ln=True)
+        self.ln(1)
+
+    def agregar_datos_medidos(self, datos):
+        self.set_font('Arial', 'B', 12)
+        self.ln(10)
+        self.cell(0, 10, 'Datos Medidos:', ln=True)
+
+        self.set_font('Arial', '', 10)
         self.ln(5)
+        self.set_font('Arial', 'B', 10)
+        self.cell(90, 10, 'Medición', 1, 0, 'C')
+        self.cell(90, 10, 'Valor', 1, 1, 'C')
+        self.set_font('Arial', '', 10)
 
-    def footer(self):
-        # Coloca el pie de página
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 10)
-        self.cell(0, 10, f'Página {self.page_no()}', align='C')
+        # Mediciones Registradas
+        self.cell(90, 10, 'H2O (ppmw)', 1, 0, 'C')
+        self.cell(90, 10, str(datos["H2O(ppmw)"]), 1, 1, 'C')
 
-    def agregar_datos(self, fila):
-        # Agregar los datos del reporte
-        self.set_font("Arial", size=11)
-        for etiqueta in ["FECHA", "SET", "CIRCUITO", "Fase", "EQUIPO"]:
-            self.cell(40, 10, f"{etiqueta}:", 0, 0)
-            self.cell(100, 10, str(fila.get(etiqueta, "")), 0, 1)
+        self.cell(90, 10, 'Punto de Rocío (°C)', 1, 0, 'C')
+        self.cell(90, 10, str(datos["H20(Pc°)"]), 1, 1, 'C')
+
+        self.cell(90, 10, 'SO2 (ppm)', 1, 0, 'C')
+        self.cell(90, 10, str(datos["SO2"]), 1, 1, 'C')
+
+        self.cell(90, 10, 'SF6 (%)', 1, 0, 'C')
+        self.cell(90, 10, str(datos["SF6"]), 1, 1, 'C')
+
+        self.cell(90, 10, 'H2O (ppmv)', 1, 0, 'C')
+        self.cell(90, 10, str(datos["H20 (ppmv)"]), 1, 1, 'C')
+
+    def agregar_datos_limites(self):
+        self.ln(10)
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, 'Límites según norma (presión > 2 bar):', ln=True)
+
         self.ln(5)
+        self.set_font('Arial', '', 10)
 
-    def insertar_grafico(self, path_img):
-        # Insertar un gráfico en el PDF
-        self.image(path_img, x=25, y=self.get_y(), w=160, h=80)
+        # Fila 1
+        self.cell(63, 12, 'H2O <= 20 ppmw', border=1, align='C')
+        self.cell(63, 12, 'H2O <= 200 ppmv', border=1, align='C')
+        self.cell(63, 12, 'SF6 > 97%', border=1, align='C')
+        self.ln()
 
-    def agregar_tabla_mediciones(self, h2o, rocio, so2, pureza, h2o_ppmv):
-        # Agregar la tabla con las mediciones
-        obs_h2o = "OBSERVADO" if h2o > 25 else "OK"
-        obs_rocio = "OBSERVADO" if rocio > -36 else "OK"
-        obs_sf6 = "OBSERVADO" if pureza < 97 else "OK"
-        obs_so2 = "OBSERVADO" if so2 >= 12 else "OK"
-        obs_h2o_ppmv = "OBSERVADO" if h2o_ppmv > 200 else "OK"
-        self.set_font("Arial", 'B', 11)
-        self.cell(0, 10, "Mediciones Registradas", ln=True)
-        self.set_font("Arial", '', 11)
+        # Fila 2
+        self.cell(63, 12, 'SO2 < 12 ppm', border=1, align='C')
+        self.cell(63, 12, 'Punto Rocío <= -36 °C', border=1, align='C')
+        self.cell(63, 12, 'Presión > 2 bar', border=1, align='C')
+        self.ln(10)
 
-        self.cell(50, 10, "H2O (ppmw)", 1)
-        self.cell(40, 10, str(h2o), 1)
-        self.cell(40, 10, obs_h2o, 1, ln=True)
+    def insertar_grafico(self, ruta_img):
+        self.ln(10)
+        self.image(ruta_img, x=25, y=self.get_y(), w=160, h=80)
+        self.ln(85)
 
-        self.cell(50, 10, "Punto de Rocío (°C)", 1)
-        self.cell(40, 10, str(rocio), 1)
-        self.cell(40, 10, obs_rocio, 1, ln=True)
-
-        self.cell(50, 10, "SO2 (ppm)", 1)
-        self.cell(40, 10, str(so2), 1)
-        self.cell(40, 10, obs_so2, 1, ln=True)
-
-        self.cell(50, 10, "Pureza SF6 (%)", 1)
-        self.cell(40, 10, str(pureza), 1)
-        self.cell(40, 10, obs_sf6, 1, ln=True)
-
-        self.cell(50, 10, "H2O (ppmv)", 1)
-        self.cell(40, 10, str(h2o_ppmv), 1)
-        self.cell(40, 10, obs_h2o_ppmv, 1, ln=True)
-        self.ln(5)
-
-    def agregar_limites_norma(self):
-        # Agregar los límites según la norma IEC 60480
-        self.set_font("Arial", 'B', 11)
-        self.cell(0, 10, "Límites según norma IEC 60480 (presión > 2 bar)", ln=True)
-        self.set_font("Arial", '', 11)
-        self.cell(60, 10, "H2O <= 25 ppmw", 1)
-        self.cell(60, 10, "Punto Rocío <= -36 °C", 1)
-        self.cell(60, 10, "SO2 < 12 ppm", 1, ln=True)
-        self.cell(60, 10, "SF6 > 97%", 1)
-        self.cell(60, 10, "H2O (ppmv) <= 200", 1)
-        self.cell(60, 10, "", 1, ln=True)
-        self.ln(5)
-
-def crear_grafico(h2o_ppmw, punto_rocio, so2, nombre_img):
-    # Crear un gráfico y guardarlo como imagen
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.axhline(y=25, color='red', linestyle='--', label='Límite H2O (25 ppmw)')
-    ax.axvline(x=-36, color='blue', linestyle='--', label='Límite Punto de Rocío (-36°C)')
-    ax.scatter(punto_rocio, h2o_ppmw, s=100 + float(so2) * 100, c='green', alpha=0.7, label=f'Dato SO2: {so2} ppm')
-    ax.set_xlabel("Punto de Rocío (°C)")
-    ax.set_ylabel("H2O (ppmw)")
-    ax.set_title("Comparación Punto de Rocío vs Humedad SF6")
-    ax.legend()
-    ax.grid(True)
-    plt.tight_layout()
-    plt.savefig(nombre_img)
-    plt.close()
-
-def generar_pdf_en_memoria(datos: dict) -> BytesIO:
-    # Genera el PDF en memoria (sin escribir en disco)
-    
+def generar_pdf_en_memoria(datos):
+    # Crear el objeto PDF
     pdf = PDF()
     pdf.add_page()
-    pdf.agregar_datos(datos)
-    pdf.agregar_tabla_mediciones(float(datos["H2O(ppmw)"]), float(datos["H20(Pc°)"]), float(datos["SO2"]),
-                                 float(datos["SF6"]), float(datos["H20 (ppmv)"]))
 
-    pdf.agregar_limites_norma()
+    # Agregar los datos generales (FECHA, SET, CIRCUITO, Fase, EQUIPO)
+    pdf.agregar_datos_generales(datos)
 
-    # Crear gráfico
-    img_path = "grafico_temp.png"
-    crear_grafico(float(datos["H2O(ppmw)"]), float(datos["H20(Pc°)"]), float(datos["SO2"]), img_path)
-    pdf.insertar_grafico(img_path)
+    # Agregar los datos medidos
+    pdf.agregar_datos_medidos(datos)
 
-    # Guardar PDF en memoria
-    buffer_pdf = BytesIO()
-    pdf.output(buffer_pdf)
-    buffer_pdf.seek(0)  # Volver al principio del archivo para que pueda leerse
+    # Agregar los valores según norma
+    pdf.agregar_datos_limites()
 
-    os.remove(img_path)  # Eliminar imagen temporal
+    # Crear el gráfico y obtener la ruta temporal
+    ruta_img = crear_grafico(
+        float(datos["H2O(ppmw)"]),
+        float(datos["H20(Pc°)"]),
+        float(datos["SO2"]),
+        float(datos["SF6"]),
+        float(datos["H20 (ppmv)"])
+    )
+    
+    # Insertar el gráfico en el PDF
+    pdf.insertar_grafico(ruta_img)
 
-    return buffer_pdf  # Devolver el archivo en memoria
+    # Generar el PDF como bytes en memoria
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+
+    # Usar BytesIO para almacenar el PDF en memoria
+    buffer = BytesIO(pdf_bytes)
+    buffer.seek(0)
+
+    # Eliminar el archivo temporal de la imagen después de usarlo
+    if os.path.exists(ruta_img):
+        os.remove(ruta_img)
+
+    return buffer
+
