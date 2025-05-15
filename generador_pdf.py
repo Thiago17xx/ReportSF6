@@ -18,7 +18,7 @@ def crear_grafico(H2O_ppmw, H20_Pc, SO2, SF6, H20_ppmv):
 
     # Añadir las líneas de límite
     ax.axhline(y=-36, color='r', linestyle='--', label='Límite Pcº <= -36')
-    ax.axvline(x=20, color='g', linestyle='--', label='Límite PPMW <= 20')
+    ax.axvline(x=25, color='g', linestyle='--', label='Límite PPMW <= 25')
 
     # Etiquetas y título
     ax.set_title('Gráfico de Burbuja: PPMW vs Punto de Rocío (Pcº)', fontsize=12)
@@ -35,7 +35,7 @@ def crear_grafico(H2O_ppmw, H20_Pc, SO2, SF6, H20_ppmv):
 
 class PDF(FPDF):
     def header(self):
-        self.image('static/logolds.jpg', x=6, y=3, w=20)
+        self.image('static/logolds.jpg', x=10, y=3, w=20)
         self.set_font('Arial', 'B', 14)
         self.cell(200, 10, 'Reporte de Análisis SF6', ln=True, align='C')
          # Línea horizontal (separador)
@@ -168,4 +168,5 @@ def generar_pdf_en_memoria(datos):
         os.remove(ruta_img)
 
     return buffer
+
 
