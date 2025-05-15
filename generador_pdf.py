@@ -35,10 +35,17 @@ def crear_grafico(H2O_ppmw, H20_Pc, SO2, SF6, H20_ppmv):
 
 class PDF(FPDF):
     def header(self):
+        self.image('static/logolds.jpg', x=6, y=3, w=20)
         self.set_font('Arial', 'B', 14)
         self.cell(200, 10, 'Reporte de Análisis SF6', ln=True, align='C')
-
+         # Línea horizontal (separador)
+        self.set_line_width(0.5)  # grosor línea
+        self.line(10, 24, 200, 24)  # de x=10 a x=200 a altura y=35
+        self.set_y(24)
+        
     def agregar_datos_generales(self, datos):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, 'Datos Generales', ln=True)
         self.set_font('Arial', '', 12)
         self.cell(0, 10, f'FECHA: {datos["FECHA"]}', ln=True)
         self.cell(0, 10, f'SET: {datos["SET"]}', ln=True)
@@ -55,45 +62,68 @@ class PDF(FPDF):
         self.set_font('Arial', '', 10)
         self.ln(5)
         self.set_font('Arial', 'B', 10)
-        self.cell(90, 10, 'Medición', 1, 0, 'C')
-        self.cell(90, 10, 'Valor', 1, 1, 'C')
+        
+        self.cell(60, 10, 'Medición', 1, 0, 'C')
+        self.cell(60, 10, 'Valor', 1, 0, 'C')
+        self.cell(60, 10, 'Observación', 1, 1, 'C')
         self.set_font('Arial', '', 10)
 
         # Mediciones Registradas
-        self.cell(90, 10, 'H2O (ppmw)', 1, 0, 'C')
-        self.cell(90, 10, str(datos["H2O(ppmw)"]), 1, 1, 'C')
+         # H2O (ppmw) - límite <= 25
+        valor = float(datos["H2O(ppmw)"])
+        estado = "Aceptable" if valor <= 25 else "Observado"
+        self.cell(60, 10, 'H2O (ppmw)', 1)
+        self.cell(60, 10, str(datos["H2O(ppmw)"]), 1)
+        self.cell(60, 10, estado, 1, 1)
 
-        self.cell(90, 10, 'Punto de Rocío (°C)', 1, 0, 'C')
-        self.cell(90, 10, str(datos["H20(Pc°)"]), 1, 1, 'C')
+        # Punto de Rocío (°C) - límite <= -36
+        valor = float(datos["H20(Pc°)"])
+        estado = "Aceptable" if valor <= -36 else "Observado"
+        self.cell(60, 10, 'Punto de Rocío (°C)', 1)
+        self.cell(60, 10, str(datos["H20(Pc°)"]), 1)
+        self.cell(60, 10, estado, 1, 1)
 
-        self.cell(90, 10, 'SO2 (ppm)', 1, 0, 'C')
-        self.cell(90, 10, str(datos["SO2"]), 1, 1, 'C')
+        # SO2 (ppm) - límite < 12
+        valor = float(datos["SO2"])
+        estado = "Aceptable" if valor < 12 else "Observado"
+        self.cell(60, 10, 'SO2 (ppm)', 1)
+        self.cell(60, 10, str(datos["SO2"]), 1)
+        self.cell(60, 10, estado, 1, 1)
 
-        self.cell(90, 10, 'SF6 (%)', 1, 0, 'C')
-        self.cell(90, 10, str(datos["SF6"]), 1, 1, 'C')
+        # SF6 (%) - límite > 97 (es % así que puede ser flotante)
+        valor = float(datos["SF6"])
+        estado = "Aceptable" if valor > 97 else "Observado"
+        self.cell(60, 10, 'SF6 (%)', 1)
+        self.cell(60, 10, str(datos["SF6"]), 1)
+        self.cell(60, 10, estado, 1, 1)
 
-        self.cell(90, 10, 'H2O (ppmv)', 1, 0, 'C')
-        self.cell(90, 10, str(datos["H20 (ppmv)"]), 1, 1, 'C')
+        # H2O (ppmv) - límite <= 200
+        valor = float(datos["H20 (ppmv)"])
+        estado = "Aceptable" if valor <= 200 else "Observado"
+        self.cell(60, 10, 'H2O (ppmv)', 1)
+        self.cell(60, 10, str(datos["H20 (ppmv)"]), 1)
+        self.cell(60, 10, estado, 1, 1)
+            
 
     def agregar_datos_limites(self):
         self.ln(10)
         self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'Límites según norma (presión > 2 bar):', ln=True)
+        self.cell(0, 10, 'Límites según norma IEC 60480 (Equipos con presión > 2 bar):', ln=True)
 
         self.ln(5)
         self.set_font('Arial', '', 10)
 
         # Fila 1
-        self.cell(63, 12, 'H2O <= 20 ppmw', border=1, align='C')
-        self.cell(63, 12, 'H2O <= 200 ppmv', border=1, align='C')
-        self.cell(63, 12, 'SF6 > 97%', border=1, align='C')
+        self.cell(60, 10, 'H2O <= 25 ppmw', border=1, align='C')
+        self.cell(60, 10, 'H2O <= 200 ppmv', border=1, align='C')
+        self.cell(60, 10, 'SF6 > 97%', border=1, align='C')
         self.ln()
 
         # Fila 2
-        self.cell(63, 12, 'SO2 < 12 ppm', border=1, align='C')
-        self.cell(63, 12, 'Punto Rocío <= -36 °C', border=1, align='C')
-        self.cell(63, 12, 'Presión > 2 bar', border=1, align='C')
-        self.ln(10)
+        self.cell(60, 10, 'SO2 < 12 ppm', border=1, align='C')
+        self.cell(60, 10, 'Punto Rocío <= -36 °C', border=1, align='C')
+        self.cell(60, 10, 'Equipos con presión > 2 bar', border=1, align='C')
+        self.ln(5)
 
     def insertar_grafico(self, ruta_img):
         self.ln(10)
